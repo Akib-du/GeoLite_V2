@@ -536,7 +536,7 @@ function initUI(){
  $('#lay-png').onclick=exportPNG;$('#lay-print').onclick=()=>{layoutSize();document.body.classList.add('printing');setTimeout(()=>{window.print();setTimeout(()=>{document.body.classList.remove('printing');layoutSize()},500)},100)};}
 function initMap(){map=L.map('map',{zoomControl:true}).setView([23.8,90.4],7);map.createPane('rasterPane').style.zIndex=250;
  osm=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors',crossOrigin:true});if(!WEB_ONLY)osm.addTo(map);L.control.scale({imperial:false}).addTo(map);
- map.on('mousemove',e=>$('#coord').textContent=e.latlng.lat.toFixed(5)+', '+e.latlng.lng.toFixed(5))}
+ map.on('mousemove',e=>$('#coord').textContent=e.latlng.lat.toFixed(5)+', '+e.latlng.lng.toFixed(5));setTimeout(()=>window.dispatchEvent(new Event('geolite-map-ready')),0)}
 
 (async function boot(){
  loadCss(['vendor/leaflet.css','https://unpkg.com/leaflet@1.9.4/dist/leaflet.css']);
@@ -551,5 +551,6 @@ function initMap(){map=L.map('map',{zoomControl:true}).setView([23.8,90.4],7);ma
 <script src="geo-extra.js"></script>
 <script src="layout-extra.js"></script>
 <script src="edit-extra.js"></script>
+<script src="identify-select.js"></script>
 </body>
 </html>
