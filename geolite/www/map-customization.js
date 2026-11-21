@@ -6,8 +6,10 @@ let imagery=null, scaleControl=null, scaleCfg={units:'metric',width:120,division
 let baseChoice='osm';
 function addStyles(){
  const s=document.createElement('style');s.textContent=`
- #map-tools{position:absolute;z-index:1200;top:8px;right:8px;display:flex;gap:6px;align-items:center;background:#fffE;padding:6px;border:1px solid #cbd5cf;border-radius:8px;box-shadow:0 1px 5px #0002;max-width:calc(100% - 16px);flex-wrap:wrap}
- #map-tools select,#map-tools button{font-size:12px;padding:5px 7px}
+ #layer-basemap{border:1px solid #dbe1de;border-radius:8px;background:#f8faf9;padding:8px;margin:8px 0 12px}
+ #layer-basemap label{font-size:12px;margin:0 0 4px;color:#526158}
+ #layer-basemap select{width:100%;padding:7px;border:1px solid #aebbb3;border-radius:6px;background:white}
+ #placemark-btn{position:absolute;z-index:1100;left:12px;top:58px;padding:9px 12px;box-shadow:0 1px 5px #0003;border-radius:8px;font-size:12px}
  .gl-marker{width:100%;height:100%;display:flex;align-items:center;justify-content:center;box-sizing:border-box;line-height:1;white-space:nowrap}
  .gl-marker.circle{border-radius:50%}.gl-marker.square{border-radius:2px}.gl-marker.diamond{transform:rotate(45deg);border-radius:1px}.gl-marker.triangle{clip-path:polygon(50% 0,0 100%,100% 100%)}
  .gl-marker.star{clip-path:polygon(50% 0,61% 36%,98% 36%,68% 58%,79% 96%,50% 73%,21% 96%,32% 58%,2% 36%,39% 36%)}
@@ -98,12 +100,37 @@ function installMarkerRenderer(){
  };
 }
 function installToolbar(){
- if($id('map-tools'))return;
- const bar=document.createElement('div');bar.id='map-tools';
- bar.innerHTML='<label style="margin:0;font-size:11px">Basemap <select id="mc-quick-base"><option value="osm">OpenStreetMap</option><option value="imagery">Imagery</option><option value="none">None</option></select></label><button id="mc-properties" class="sm">Map properties ⚙</button>';
- $id('view-map').appendChild(bar);
- $id('mc-quick-base').value=baseChoice;$id('mc-quick-base').onchange=e=>setBase(e.target.value);
- $id('mc-properties').onclick=openMapProperties;
+ const panel=$id('side-layers');
+ if(panel&&!panel.querySelector('#layer-basemap')){
+  const group=document.createElement('div');group.id='layer-basemap';
+  group.innerHTML='<label for="mc-quick-base">Basemap</label><select id="mc-quick-base"><option value="osm">OpenStreetMap</option><option value="imagery">Esri World Imagery</option><option value="none">No basemap</option></select><div style="margin-top:6px"><button id="mc-properties" class="sm">Map properties ⚙</button></div>';
+  const row=panel.querySelector('.row');if(row)row.after(group);else panel.prepend(group);
+  group.querySelector('#mc-quick-base').onchange=e=>setBase(e.target.value);
+  group.querySelector('#mc-properties').onclick=openMapProperties;
+ }
+ const select=$id('mc-quick-base');if(select)select.value=baseChoice;
+ if(!$id('placemark-btn')){
+  const b=document.createElement('button');b.id='placemark-btn';b.textContent='＋ Add placemark';b.title='Add a point at your location or tap any map location';
+  $id('view-map').appendChild(b);b.onclick=openPlacemarkDialog;
+ }
+}
+function savePlacemark(latlng,name){
+ const feature={type:'Feature',properties:{Name:name||'Placemark',Latitude:+latlng.lat.toFixed(7),Longitude:+latlng.lng.toFixed(7),Created:new Date().toISOString(),Source:name==='My location'?'Device location':'Map location'},geometry:{type:'Point',coordinates:[latlng.lng,latlng.lat]}};
+ addVector(feature.properties.Name,fc([feature]),null,true,false);
+ toast('Placemark added to Layers');showTab('layers');
+}
+function openPlacemarkDialog(){
+ openModal('<h3>Add placemark</h3><p>Choose how to create your point.</p><label>Placemark name <input id="pm-name" type="text" value="Placemark" maxlength="80"></label><div class="row"><button class="pri" id="pm-device">◎ Use my device location</button><button id="pm-map">＋ Choose on map</button></div><p><small>Device location requires location permission. To place a point manually, choose “Choose on map” and tap the map.</small></p><button onclick="closeModal()">Cancel</button>');
+ $id('pm-device').onclick=()=>{
+  if(!navigator.geolocation){toast('Location is not available in this WebView');return}
+  const name=$id('pm-name').value.trim()||'My location';
+  $id('pm-device').disabled=true;$id('pm-device').textContent='Getting location…';
+  navigator.geolocation.getCurrentPosition(pos=>{closeModal();savePlacemark({lat:pos.coords.latitude,lng:pos.coords.longitude},name==='Placemark'?'My location':name)},err=>{toast(err.code===1?'Location permission denied. Allow location access in Android settings.':err.code===2?'Device location unavailable.':'Location request timed out.');const b=$id('pm-device');if(b){b.disabled=false;b.textContent='◎ Use my device location'}},{enableHighAccuracy:true,timeout:20000,maximumAge:0});
+ };
+ $id('pm-map').onclick=()=>{
+  const name=$id('pm-name').value.trim()||'Placemark';closeModal();toast('Tap the map where you want to place the point');
+  map.once('click',e=>savePlacemark(e.latlng,name));map.getContainer().style.cursor='crosshair';
+ };
 }
 function addAdvancedButtons(){
  const el=$id('side-layers');if(!el||el.dataset.advanced==='1')return;el.dataset.advanced='1';
@@ -118,6 +145,7 @@ function addAdvancedButtons(){
 }
 function boot(){
  addStyles();installMarkerRenderer();installToolbar();installScale();addAdvancedButtons();
+ const layerPanel=$id('side-layers');if(layerPanel&&!layerPanel._basemapObserver){layerPanel._basemapObserver=new MutationObserver(()=>installToolbar());layerPanel._basemapObserver.observe(layerPanel,{childList:true,subtree:true});}
  const quick=$id('mc-quick-base');if(quick)quick.value=baseChoice;
 }
 window.addEventListener('geolite-map-ready',()=>setTimeout(boot,0));
