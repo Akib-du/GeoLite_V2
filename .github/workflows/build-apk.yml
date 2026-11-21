@@ -45,6 +45,19 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync android
 
+      - name: Add Android location permissions
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("android/app/src/main/AndroidManifest.xml")
+          s = p.read_text()
+          marker = '<application'
+          permissions = '    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\\n'
+          if 'android.permission.ACCESS_FINE_LOCATION' not in s:
+              s = s.replace(marker, permissions + marker, 1)
+              p.write_text(s)
+          PY
+
       - name: Build debug APK
         run: |
           cd android
