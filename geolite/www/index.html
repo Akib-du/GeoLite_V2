@@ -543,7 +543,7 @@ function initMap(){map=L.map('map',{zoomControl:true}).setView([23.8,90.4],7);ma
  const ok=await loadLib(['vendor/leaflet.js','https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'],()=>window.L);
  if(!ok){document.body.insertAdjacentHTML('afterbegin','<p style="padding:20px">Could not load the map library. Connect to the internet and reload (or bundle libs into www/vendor).</p>');return}
  initMap();initUI();
- [['vendor/turf.min.js','https://unpkg.com/@turf/turf@6.5.0/turf.min.js','turf'],['vendor/geotiff.js','https://unpkg.com/geotiff@2.1.3/dist-browser/geotiff.js','GeoTIFF'],['vendor/shp.min.js','https://unpkg.com/shpjs@4.0.4/dist/shp.min.js','shp'],['vendor/togeojson.umd.js','https://unpkg.com/@tmcw/togeojson@5.8.1/dist/togeojson.umd.js','toGeoJSON'],['vendor/html2canvas.min.js','https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js','html2canvas']]
+ [['vendor/turf.min.js','https://unpkg.com/@turf/turf@6.5.0/turf.min.js','turf'],['vendor/geotiff.js','https://unpkg.com/geotiff@2.1.3/dist-browser/geotiff.js','GeoTIFF'],['vendor/shp.min.js','https://unpkg.com/shpjs@4.0.4/dist/shp.min.js','shp'],['vendor/togeojson.umd.js','https://unpkg.com/@tmcw/togeojson@5.8.1/dist/togeojson.umd.js','toGeoJSON'],['vendor/html2canvas.min.js','https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js','html2canvas'],['vendor/fflate.js','https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js','fflate']]
   .forEach(([a,b,g])=>loadLib([a,b],()=>window[g]).then(r=>{if(!r)console.warn('missing lib',g)}));
  if('serviceWorker' in navigator&&location.protocol.startsWith('http')&&!(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform()))navigator.serviceWorker.register('sw.js').catch(()=>{});
 })();
