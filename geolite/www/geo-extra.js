@@ -58,7 +58,7 @@ function gdbTable(tbl,tblx){const T=new DataView(tbl.buffer,tbl.byteOffset,tbl.b
   if(type===4){p+=4;f.nullable=!!(tbl[p++]&1);const b={u:tbl,p};const dl=vu(b);p=b.p+dl}
   else if(type===7){p++;f.nullable=!!(tbl[p++]&1);const wl=T.getUint16(p,true);p+=2;const wkt=u16s(tbl,p,wl/2);p+=wl;const gf=tbl[p++],hasM=!!(gf&2),hasZ=!!(gf&4);
    const d=()=>{const v=T.getFloat64(p,true);p+=8;return v};const x0=d(),y0=d(),xs=d();if(hasM){d();d()}if(hasZ){d();d()}d();if(hasM)d();if(hasZ)d();
-   p+=32+(hasZ?16:0)+(hasM?16:0);p++;const ng=T.getUint32(p,true);p+=4+8*ng;gi=f.geom={x0,y0,xs,wkt}}
+   /* FileGDB stores one optional Z/M range block when either dimension flag is set, not one block per flag. */p+=32+((hasZ||hasM)?16:0);p++;const ng=T.getUint32(p,true);p+=4+8*ng;gi=f.geom={x0,y0,xs,wkt}}
   else if(type===6||type===8||type===10||type===11||type===12){f.nullable=type!==6&&!!(tbl[p+1]&1);p+=2}
   else if(type===9)throw new Error('raster fields are not supported');
   else{p++;f.nullable=!!(tbl[p++]&1);const dl=tbl[p++];p+=dl}
