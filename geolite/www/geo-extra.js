@@ -5,15 +5,17 @@
 const TD=new TextDecoder('utf-8'),TE=new TextEncoder();
 const clampLat=v=>Math.max(-85,Math.min(85,v));
 
-/* ================= ZIP (read: DecompressionStream, write: store-only) ================= */
-async function inflate(u8){const ds=new DecompressionStream('deflate-raw'),w=ds.writable.getWriter();w.write(u8);w.close();return new Uint8Array(await new Response(ds.readable).arrayBuffer())}
-function unzip(buf){const u=new Uint8Array(buf),dv=new DataView(buf);let e=u.length-22;while(e>=0&&dv.getUint32(e,true)!==0x06054b50)e--;if(e<0)throw new Error('Not a zip file');
- const n=dv.getUint16(e+10,true);let p=dv.getUint32(e+16,true);const m=new Map();
- for(let i=0;i<n;i++){if(dv.getUint32(p,true)!==0x02014b50)break;
-  const meth=dv.getUint16(p+10,true),cs=dv.getUint32(p+20,true),nl=dv.getUint16(p+28,true),el=dv.getUint16(p+30,true),cl=dv.getUint16(p+32,true),lo=dv.getUint32(p+42,true),name=TD.decode(u.subarray(p+46,p+46+nl));p+=46+nl+el+cl;
-  if(name.endsWith('/'))continue;
-  m.set(name,async()=>{const s=lo+30+dv.getUint16(lo+26,true)+dv.getUint16(lo+28,true),d=u.subarray(s,s+cs);return meth===0?d:inflate(d)})}
- return m}
+/* ================= ZIP reader: fflate supports stored/deflate ZIPs and ZIP64 ================= */
+function unzip(buf){
+ const lib=window.fflate;
+ if(!lib||typeof lib.unzipSync!=='function')throw new Error('ZIP support did not load. Reopen the app with internet once, then try again.');
+ const entries=lib.unzipSync(new Uint8Array(buf)),m=new Map();
+ for(const [raw,data] of Object.entries(entries)){
+  const name=raw.replace(/\\/g,'/').replace(/^\.\//,'');
+  if(!name.endsWith('/'))m.set(name,async()=>data);
+ }
+ return m;
+}
 const CRC=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
 function crc32(u){let c=-1;for(let i=0;i<u.length;i++)c=CRC[(c^u[i])&255]^(c>>>8);return(~c)>>>0}
 function makeZip(files){const parts=[],cd=[];let off=0;
@@ -98,10 +100,16 @@ async function addGDB(files,label){ // files: Map(lowercase basename -> async()=
   catch(e){toast(`${label||'GDB'} → ${c.name}: ${e.message}`,7000);console.error(e)}}
  toast(`${label||'Geodatabase'}: ${added} layer(s) added${skipped?`, ${skipped} table(s) skipped (no geometry)`:''}`,5000)}
 const isGdbName=n=>/\.gdbtable$|\.gdbtablx$/i.test(n);
-async function openGdbZip(f){const ents=unzip(await f.arrayBuffer());const names=[...ents.keys()];if(!names.some(n=>/\.gdb\/[^/]+\.gdbtable$/i.test(n)||/^[^/]*a00000001\.gdbtable$/i.test(n)))return false;
- const groups=new Map();for(const n of names){if(!isGdbName(n))continue;const i=n.toLowerCase().lastIndexOf('/'),dir=i<0?'':n.slice(0,i),m=groups.get(dir)||new Map();m.set(n.slice(i+1).toLowerCase(),ents.get(n));groups.set(dir,m)}
- for(const [dir,m] of groups)if(m.has('a00000001.gdbtable'))await addGDB(m,(dir.split('/').pop()||f.name).replace(/\.gdb$/i,''));
- return true}
+async function openGdbZip(f){
+ const ents=unzip(await f.arrayBuffer()),names=[...ents.keys()],gdbFiles=names.filter(isGdbName);
+ if(!gdbFiles.length)return false;
+ const groups=new Map();
+ for(const n of gdbFiles){const i=n.lastIndexOf('/'),dir=i<0?'':n.slice(0,i),base=n.slice(i+1).toLowerCase(),m=groups.get(dir)||new Map();m.set(base,ents.get(n));groups.set(dir,m)}
+ const valid=[...groups].filter(([,m])=>m.has('a00000001.gdbtable')&&m.has('a00000001.gdbtablx'));
+ if(!valid.length)throw new Error('This ZIP contains GDB table fragments but not a complete File Geodatabase. ZIP the entire .gdb folder, including a00000001.gdbtable and a00000001.gdbtablx.');
+ for(const [dir,m] of valid)await addGDB(m,(dir.split('/').pop()||f.name).replace(/\\.gdb$/i,''));
+ return true;
+}
 async function openGdbLoose(files){const groups=new Map();for(const f of files){const rp=f.webkitRelativePath||'',i=rp.lastIndexOf('/'),dir=i<0?'':rp.slice(0,i),m=groups.get(dir)||new Map();m.set(f.name.toLowerCase(),async()=>new Uint8Array(await f.arrayBuffer()));groups.set(dir,m)}
  for(const [dir,m] of groups)try{await addGDB(m,(dir.split('/').pop()||'GDB').replace(/\.gdb$/i,''))}catch(e){toast('GDB: '+e.message,7000)}}
 
